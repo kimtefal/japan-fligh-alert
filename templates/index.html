@@ -609,10 +609,10 @@ async function verifyCode() {
   const msg = document.getElementById('authMsg');
   if (!code) return;
   try {
-    const r = await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'taehyunc8@gmail.com',code})});
+    const r = await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
     const d = await r.json();
     if (d.ok) { showSettingsContent(); await loadConfig(); }
-    else { msg.className='rmsg fail'; msg.textContent='✗ '+d.error; }
+    else { msg.className='rmsg fail'; msg.textContent='✗ '+d.error; document.getElementById('authCode').value=''; document.getElementById('authCode').focus(); }
   } catch(e){msg.className='rmsg fail';msg.textContent='서버 오류';}
 }
 
