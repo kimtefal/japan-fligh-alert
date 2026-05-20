@@ -71,17 +71,35 @@ HEADERS = {
 
 monitor_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
+wake_event = threading.Event()
 
 # ── 데이터 ───────────────────────────────────────────────────
 
+def default_data() -> dict:
+    # DEFAULT_CONFIG 안의 price_limits는 dict라서 얕은 복사(copy) 대신 JSON 복사로 분리한다.
+    return {
+        "config": json.loads(json.dumps(DEFAULT_CONFIG, ensure_ascii=False)),
+        "sent_keys": [],
+        "last_deals": [],
+        "last_events": [],
+        "last_checked": None,
+    }
+
 def load_data() -> dict:
+    data = default_data()
     if DATA_FILE.exists():
         try:
-            return json.loads(DATA_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
-    return {"config": DEFAULT_CONFIG.copy(), "sent_keys": [],
-            "last_deals": [], "last_events": [], "last_checked": None}
+            loaded = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data.update({k: v for k, v in loaded.items() if k != "config"})
+                loaded_cfg = loaded.get("config", {})
+                if isinstance(loaded_cfg, dict):
+                    data["config"].update(loaded_cfg)
+                    if isinstance(loaded_cfg.get("price_limits"), dict):
+                        data["config"]["price_limits"].update(loaded_cfg["price_limits"])
+        except Exception as e:
+            append_log("fail", "시스템", "설정 파일 읽기 실패", str(e))
+    return data
 
 def save_data(d: dict):
     DATA_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -358,10 +376,14 @@ def monitor_loop():
     while not stop_event.is_set():
         d = load_data(); cfg = d["config"]
         if not cfg.get("alert_on"):
-            stop_event.wait(60); continue
+            wake_event.wait(60)
+            wake_event.clear()
+            continue
         if not cfg.get("telegram_token") or not cfg.get("telegram_chat_id"):
             append_log("fail","시스템","텔레그램 미설정","토큰 또는 chat_id 없음")
-            stop_event.wait(60); continue
+            wake_event.wait(60)
+            wake_event.clear()
+            continue
 
         append_log("info","시스템","검색 사이클 시작", datetime.now().strftime("%Y-%m-%d %H:%M"))
         trips = get_trips(max_per_type=5)
@@ -369,10 +391,12 @@ def monitor_loop():
         all_deals = []
 
         for arr, limit in cfg["price_limits"].items():
-            if stop_event.is_set(): break
+            if stop_event.is_set() or not load_data().get("config", {}).get("alert_on"):
+                break
             city = CITY_NAMES.get(arr, arr)
             for dep in ["ICN","GMP"]:
-                if stop_event.is_set(): break
+                if stop_event.is_set() or not load_data().get("config", {}).get("alert_on"):
+                    break
                 route_label = f"{dep}→{city}({arr})"
                 try:
                     deal = search_one_route(dep, arr, limit, trips)
@@ -403,11 +427,14 @@ def monitor_loop():
         save_data(d)
         append_log("info","시스템",f"사이클 완료 — 특가 {len(all_deals)}건",
                    f"다음 검색: {cfg.get('interval_minutes',30)}분 후")
-        stop_event.wait(cfg.get("interval_minutes",30) * 60)
+        wake_event.wait(cfg.get("interval_minutes",30) * 60)
+        wake_event.clear()
     append_log("info","시스템","모니터링 중지")
 
 def start_monitor():
     global monitor_thread, stop_event
+    if monitor_thread is not None and monitor_thread.is_alive():
+        return
     stop_event.clear()
     monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
     monitor_thread.start()
@@ -429,14 +456,29 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     if not is_admin(): return jsonify({"ok":False,"error":"인증 필요"}), 403
-    d = load_data(); body = request.json
-    d["config"].update({k: v for k, v in body.items() if k in DEFAULT_CONFIG})
+    d = load_data()
+    body = request.json or {}
+
+    # 허용된 설정만 서버 전역 설정으로 저장한다.
+    for k, v in body.items():
+        if k not in DEFAULT_CONFIG:
+            continue
+        if k == "price_limits" and isinstance(v, dict):
+            d["config"].setdefault("price_limits", {}).update(v)
+        else:
+            d["config"][k] = v
+
     save_data(d)
+
+    # 브라우저 세션과 무관하게 서버의 모니터링 스레드가 전역 설정을 다시 읽도록 깨운다.
     if d["config"].get("alert_on"):
-        stop_event.set(); time.sleep(0.3); start_monitor()
+        start_monitor()
+        append_log("info", "시스템", "모니터링 ON")
     else:
-        stop_event.set(); append_log("info","시스템","모니터링 OFF")
-    return jsonify({"ok": True})
+        append_log("info", "시스템", "모니터링 OFF")
+    wake_event.set()
+
+    return jsonify({"ok": True, "alert_on": bool(d["config"].get("alert_on"))})
 
 # 인증 API — 비밀번호 방식
 @app.route("/api/auth/verify", methods=["POST"])
@@ -451,6 +493,17 @@ def auth_verify():
 @app.route("/api/auth/status", methods=["GET"])
 def auth_status():
     return jsonify({"verified": is_admin()})
+
+@app.route("/api/public/status", methods=["GET"])
+def public_status():
+    d = load_data()
+    cfg = d.get("config", {})
+    return jsonify({
+        "alert_on": bool(cfg.get("alert_on")),
+        "interval_minutes": cfg.get("interval_minutes", 30),
+        "last_checked": d.get("last_checked"),
+        "monitor_alive": bool(monitor_thread and monitor_thread.is_alive()),
+    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
