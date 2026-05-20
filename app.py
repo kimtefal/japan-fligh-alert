@@ -22,15 +22,9 @@ log = logging.getLogger(__name__)
 DATA_FILE = Path("/tmp/data.json")
 LOG_FILE  = Path("/tmp/alert_log.json")
 
-# 인증 관련 - 메모리에 저장 (재시작 시 초기화)
-_auth_codes: dict = {}   # email -> {code, expires}
-_auth_sessions: set = set()  # 인증된 session_id
-
-ADMIN_EMAIL = "taehyunc8@gmail.com"
-
-# Gmail SMTP 설정 (환경변수로 관리)
-GMAIL_USER = os.environ.get("GMAIL_USER", "")
-GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+# 관리자 비밀번호 — Render 환경변수 ADMIN_PASSWORD 로 설정
+# 미설정 시 기본값 "stardew1234" 사용
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "stardew1234")
 
 DEFAULT_CONFIG = {
     "telegram_token": "",
@@ -119,313 +113,13 @@ def append_log(level: str, route: str, message: str, detail: str = ""):
 
 # ── 이메일 인증 ──────────────────────────────────────────────
 
-def send_auth_code(email: str) -> tuple[bool, str]:
-    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
-        # 환경변수 미설정 시 개발 모드: 코드 로그로 출력
-        code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
-        _auth_codes[email] = {"code": code, "expires": time.time() + 600}
-        log.info(f"[DEV] 인증코드 ({email}): {code}")
-        return True, "dev"
-
-    code = "".join([str(secrets.randbelow(10)) for _ in range(6)])
-    _auth_codes[email] = {"code": code, "expires": time.time() + 600}
-
-    try:
-        msg = MIMEText(
-            f"일본 특가 알리미 설정 인증코드입니다.\n\n"
-            f"인증코드: {code}\n\n"
-            f"이 코드는 10분 후 만료됩니다.\n"
-            f"본인이 요청하지 않았다면 이 메일을 무시하세요.",
-            "plain", "utf-8"
-        )
-        msg["Subject"] = f"[일본 특가 알리미] 인증코드: {code}"
-        msg["From"] = GMAIL_USER
-        msg["To"] = email
-
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            smtp.send_message(msg)
-        return True, "sent"
-    except Exception as e:
-        log.error(f"이메일 발송 실패: {e}")
-        return False, str(e)
+def verify_password(pw: str) -> bool:
+    return pw.strip() == ADMIN_PASSWORD
 
 
 def verify_auth_code(email: str, code: str) -> bool:
-    entry = _auth_codes.get(email)
-    if not entry:
-        return False
-    if time.time() > entry["expires"]:
-        del _auth_codes[email]
-        return False
-    if entry["code"] != code.strip():
-        return False
-    del _auth_codes[email]
-    return True
+    return verify_password(code)
 
-
-# ── 일정 생성 (+10개월) ──────────────────────────────────────
-
-HOLIDAYS = [
-    ("2025-09-05","2025-09-08"), ("2025-10-03","2025-10-03"), ("2025-10-09","2025-10-09"),
-    ("2026-01-27","2026-01-30"), ("2026-03-01","2026-03-01"),
-    ("2026-05-05","2026-05-05"), ("2026-06-06","2026-06-06"),
-    ("2026-08-15","2026-08-15"), ("2026-09-24","2026-09-27"),
-    ("2026-10-03","2026-10-03"), ("2026-10-09","2026-10-09"),
-    ("2027-01-27","2027-01-30"),
-]
-
-def get_trips(max_per_type: int = 5):
-    """현재 날짜 기준 +10개월 범위에서 일정 생성"""
-    today = date.today()
-    end_date = today + timedelta(days=305)  # ≈ 10개월
-
-    holiday_dates = set()
-    for s, e in HOLIDAYS:
-        sd, ed = date.fromisoformat(s), date.fromisoformat(e)
-        d = sd
-        while d <= ed:
-            holiday_dates.add(d); d += timedelta(days=1)
-
-    trips = []
-    seen, hcount = set(), 0
-    for hday in sorted(holiday_dates):
-        if hday < today or hday > end_date or hcount >= max_per_type:
-            continue
-        for offset in range(-1, 2):
-            dep = hday + timedelta(days=offset)
-            ret = dep + timedelta(days=3)
-            if dep < today or ret > end_date or (dep, ret) in seen:
-                continue
-            if any((dep + timedelta(days=i)) in holiday_dates for i in range(4)):
-                seen.add((dep, ret))
-                trips.append((dep, ret, "연휴 3박4일"))
-                hcount += 1; break
-
-    start = max(today, date(2026, 8, 1))
-    cur, wcount = start, 0
-    while cur <= end_date and wcount < max_per_type * 2:
-        wd = cur.weekday()
-        if wd == 4:
-            trips.append((cur, cur + timedelta(days=2), "금토일 2박3일")); wcount += 1
-        elif wd == 5:
-            trips.append((cur, cur + timedelta(days=2), "토일월 2박3일")); wcount += 1
-        cur += timedelta(days=1)
-
-    return trips
-
-
-# ── 가격 조회 ────────────────────────────────────────────────
-
-def fetch_naver_price(dep, arr, dep_date, ret_date) -> Optional[int]:
-    d1, d2 = dep_date.strftime("%Y%m%d"), ret_date.strftime("%Y%m%d")
-    url = (f"https://flight.naver.com/flights/international/"
-           f"{dep}-{arr}-{d1}/{arr}-{dep}-{d2}?adult=1")
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=8)
-        nums = re.findall(r'"totalPrice"\s*:\s*(\d+)', r.text)
-        prices = [int(n) for n in nums if 50000 < int(n) < 2000000]
-        return min(prices) if prices else None
-    except requests.Timeout:
-        raise TimeoutError("네이버항공 응답 시간 초과")
-    except Exception as e:
-        raise RuntimeError(str(e))
-
-def build_naver_url(dep, arr, dep_date, ret_date):
-    d1, d2 = dep_date.strftime("%Y%m%d"), ret_date.strftime("%Y%m%d")
-    return f"https://flight.naver.com/flights/international/{dep}-{arr}-{d1}/{arr}-{dep}-{d2}?adult=1"
-
-def build_skyscanner_url(dep, arr, dep_date, ret_date):
-    d1, d2 = dep_date.strftime("%y%m%d"), ret_date.strftime("%y%m%d")
-    return (f"https://www.skyscanner.co.kr/transport/flights/"
-            f"{dep.lower()}/{arr.lower()}/{d1}/{d2}/?adults=1&currency=KRW")
-
-def search_one_route(dep, arr, limit, trips) -> Optional[dict]:
-    best_price, best_trip = None, None
-    for dep_date, ret_date, label in trips:
-        if dep_date <= date.today():
-            continue
-        try:
-            price = fetch_naver_price(dep, arr, dep_date, ret_date)
-            time.sleep(0.4)
-        except Exception:
-            time.sleep(0.4)
-            continue
-        if price and (best_price is None or price < best_price):
-            best_price, best_trip = price, (dep_date, ret_date, label)
-
-    if best_price and best_trip and best_price <= limit:
-        dep_date, ret_date, label = best_trip
-        saving = round((1 - best_price / limit) * 100)
-        return {
-            "route": f"{dep} → {CITY_NAMES.get(arr, arr)}({arr})",
-            "dep": dep, "arr": arr,
-            "dep_date": dep_date.strftime("%Y.%m.%d"),
-            "ret_date": ret_date.strftime("%Y.%m.%d"),
-            "schedule": label,
-            "price": best_price, "limit": limit, "saving": saving,
-            "airline": "네이버항공",
-            "url": build_naver_url(dep, arr, dep_date, ret_date),
-            "skyscanner_url": build_skyscanner_url(dep, arr, dep_date, ret_date),
-            "reason": f"기준가 {limit:,}원 대비 {saving}% 저렴",
-        }
-    return None
-
-
-# ── SSE: 특정 그룹 검색 ──────────────────────────────────────
-
-def stream_group(group_codes: list, config: dict):
-    trips = get_trips(max_per_type=5)
-    limits = config["price_limits"]
-    pairs = [(dep, arr) for arr in group_codes for dep in ["ICN", "GMP"]]
-    total, done = len(pairs), 0
-
-    def sse(obj):
-        return f"data: {json.dumps(obj, ensure_ascii=False, default=str)}\n\n"
-
-    found = []
-    for dep, arr in pairs:
-        done += 1
-        city = CITY_NAMES.get(arr, arr)
-        limit = limits.get(arr, 250000)
-        yield sse({"type":"progress","current":done,"total":total,
-                   "label":f"{dep} → {city} 검색 중..."})
-        try:
-            deal = search_one_route(dep, arr, limit, trips)
-            if deal:
-                found.append(deal)
-                yield sse({**deal, "type":"deal"})
-        except Exception as e:
-            log.warning(f"검색 오류 {dep}-{arr}: {e}")
-
-    # 결과 저장 (기존 last_deals에 병합)
-    try:
-        d = load_data()
-        existing = {(x["dep"], x["arr"]): x for x in d.get("last_deals", [])}
-        for deal in found:
-            existing[(deal["dep"], deal["arr"])] = deal
-        d["last_deals"] = list(existing.values())
-        d["last_checked"] = datetime.now().isoformat()
-        save_data(d)
-    except Exception:
-        pass
-
-    yield sse({"type":"done","count":len(found)})
-
-
-# ── SSE: 전체 병렬 검색 ──────────────────────────────────────
-
-def stream_all_parallel(config: dict):
-    """
-    그룹별로 스레드를 띄우고, 결과를 공유 큐로 받아 SSE 스트리밍
-    """
-    import queue as q_mod
-    trips = get_trips(max_per_type=5)
-    limits = config["price_limits"]
-    all_codes = [arr for g in DEST_GROUPS for arr in g["codes"]]
-    pairs = [(dep, arr) for arr in all_codes for dep in ["ICN", "GMP"]]
-    total = len(pairs)
-    result_q: q_mod.Queue = q_mod.Queue()
-    found_deals = []
-
-    def worker(dep, arr):
-        city = CITY_NAMES.get(arr, arr)
-        limit = limits.get(arr, 250000)
-        result_q.put({"type":"progress","label":f"{dep} → {city} 검색 중..."})
-        try:
-            deal = search_one_route(dep, arr, limit, trips)
-            if deal:
-                result_q.put({**deal, "type":"deal"})
-            else:
-                result_q.put({"type":"checked"})
-        except Exception as e:
-            result_q.put({"type":"checked", "error": str(e)})
-
-    # 최대 4개 동시 실행 (서버 부하 제한)
-    semaphore = threading.Semaphore(4)
-
-    def bounded_worker(dep, arr):
-        with semaphore:
-            worker(dep, arr)
-
-    threads = []
-    for dep, arr in pairs:
-        t = threading.Thread(target=bounded_worker, args=(dep, arr), daemon=True)
-        threads.append(t)
-        t.start()
-
-    done = 0
-    while done < total:
-        try:
-            item = result_q.get(timeout=30)
-            if item["type"] in ("checked", "deal"):
-                done += 1
-            if item["type"] == "deal":
-                found_deals.append(item)
-            item["current"] = done
-            item["total"] = total
-            yield f"data: {json.dumps(item, ensure_ascii=False, default=str)}\n\n"
-        except Exception:
-            break
-
-    for t in threads:
-        t.join(timeout=0)
-
-    # 결과 저장
-    try:
-        d = load_data()
-        d["last_deals"] = found_deals
-        d["last_checked"] = datetime.now().isoformat()
-        save_data(d)
-    except Exception:
-        pass
-
-    yield f"data: {json.dumps({'type':'done','count':len(found_deals)}, ensure_ascii=False)}\n\n"
-
-
-# ── 이벤트 검색 ──────────────────────────────────────────────
-
-def check_events() -> list:
-    results = []
-    japan_kw = ["일본","도쿄","오사카","후쿠오카","삿포로","오키나와","나고야"]
-    deal_kw  = ["특가","세일","프로모션","이벤트","할인"]
-    for cfg in AIRLINE_EVENTS:
-        try:
-            r = requests.get(cfg["url"], headers=HEADERS, timeout=8)
-            soup = BeautifulSoup(r.text, "html.parser")
-            seen = set()
-            for tag in soup.find_all(["a","div","li","h3"], limit=100):
-                text = tag.get_text(" ", strip=True)
-                if len(text) < 6 or len(text) > 150: continue
-                if not any(k in text for k in deal_kw): continue
-                if not any(k in text for k in japan_kw): continue
-                key = text[:30]
-                if key in seen: continue
-                seen.add(key)
-                href = tag.get("href","") if tag.name == "a" else ""
-                if href and not href.startswith("http"):
-                    from urllib.parse import urljoin
-                    href = urljoin(cfg["url"], href)
-                results.append({"airline":cfg["name"],"code":cfg["code"],
-                                 "name":text[:80],"url":href or cfg["url"]})
-                if len(results) >= 20: break
-        except Exception as e:
-            log.warning(f"{cfg['name']} 스크래핑 실패: {e}")
-        time.sleep(0.5)
-    return results
-
-
-# ── 텔레그램 ─────────────────────────────────────────────────
-
-def send_telegram(token, chat_id, text) -> bool:
-    try:
-        r = requests.post(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            json={"chat_id":chat_id,"text":text,"parse_mode":"HTML","disable_web_page_preview":True},
-            timeout=10)
-        return r.status_code == 200
-    except Exception:
-        return False
 
 def send_deal_alert(token, chat_id, deal) -> bool:
     msg = (f"✈️ <b>일본 항공권 특가!</b>\n\n"
@@ -537,27 +231,20 @@ def set_config():
 # 인증 API
 @app.route("/api/auth/send", methods=["POST"])
 def auth_send():
-    email = (request.json or {}).get("email","").strip().lower()
-    if email != ADMIN_EMAIL:
-        return jsonify({"ok": False, "error": "등록된 이메일이 아닙니다"})
-    ok, mode = send_auth_code(email)
-    if not ok:
-        return jsonify({"ok": False, "error": f"이메일 발송 실패: {mode}"})
-    msg = "이메일로 인증코드를 발송했습니다" if mode == "sent" else "인증코드가 서버 로그에 출력됐습니다 (개발 모드)"
-    return jsonify({"ok": True, "message": msg, "dev": mode == "dev"})
+    # 비밀번호 방식 — 프론트에서 바로 verify로 가도록 ok 반환
+    return jsonify({"ok": True, "message": "비밀번호를 입력하세요", "mode": "password"})
+
 
 @app.route("/api/auth/verify", methods=["POST"])
 def auth_verify():
     body = request.json or {}
-    email = body.get("email","").strip().lower()
-    code  = body.get("code","").strip()
-    if email != ADMIN_EMAIL:
-        return jsonify({"ok": False, "error": "등록된 이메일이 아닙니다"})
-    if verify_auth_code(email, code):
+    pw = body.get("code", "").strip()
+    if verify_password(pw):
         session["admin_verified"] = True
         session.permanent = True
         return jsonify({"ok": True})
-    return jsonify({"ok": False, "error": "인증코드가 틀렸거나 만료됐습니다"})
+    return jsonify({"ok": False, "error": "비밀번호가 틀렸습니다"})
+
 
 @app.route("/api/auth/status", methods=["GET"])
 def auth_status():
