@@ -8,131 +8,151 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --surface2: #222;
-  --border: rgba(255,255,255,0.08);
-  --border2: rgba(255,255,255,0.14);
-  --text: #f0f0f0;
-  --text2: #888;
-  --text3: #555;
-  --green: #4ade80;
-  --green-dim: rgba(74,222,128,0.12);
-  --green-border: rgba(74,222,128,0.3);
-  --blue: #60a5fa;
-  --blue-dim: rgba(96,165,250,0.1);
-  --red: #f87171;
-  --amber: #fbbf24;
-  --amber-dim: rgba(251,191,36,0.1);
-  --radius: 10px;
-  --radius-sm: 6px;
+  --bg:#0f0f0f; --surface:#1a1a1a; --surface2:#222; --border:rgba(255,255,255,0.08);
+  --border2:rgba(255,255,255,0.14); --text:#f0f0f0; --text2:#888; --text3:#555;
+  --green:#4ade80; --green-dim:rgba(74,222,128,0.12); --green-border:rgba(74,222,128,0.3);
+  --blue:#60a5fa; --blue-dim:rgba(96,165,250,0.1); --red:#f87171;
+  --amber:#fbbf24; --amber-dim:rgba(251,191,36,0.1); --radius:10px; --radius-sm:6px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { background: var(--bg); color: var(--text); font-family: 'Pretendard', sans-serif; font-size: 15px; }
-body { min-height: 100vh; }
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--bg);color:var(--text);font-family:'Pretendard',sans-serif;font-size:15px}
+body{min-height:100vh}
+.layout{max-width:720px;margin:0 auto;padding:32px 20px 80px}
 
-.layout { max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; }
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:36px;height:36px;background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px}
+.brand-name{font-size:17px;font-weight:600;letter-spacing:-0.3px}
+.brand-sub{font-size:12px;color:var(--text2);margin-top:1px}
+.alert-toggle{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.toggle-row{display:flex;align-items:center;gap:10px}
+.toggle-label{font-size:13px;color:var(--text2);font-family:'DM Mono',monospace}
+.switch{position:relative;width:46px;height:26px;cursor:pointer}
+.switch input{display:none}
+.switch-track{position:absolute;inset:0;background:var(--surface2);border:1px solid var(--border2);border-radius:13px;transition:all .25s}
+.switch input:checked+.switch-track{background:var(--green-dim);border-color:var(--green-border)}
+.switch-thumb{position:absolute;top:4px;left:4px;width:18px;height:18px;background:var(--text3);border-radius:50%;transition:all .25s}
+.switch input:checked~.switch-thumb{transform:translateX(20px);background:var(--green)}
+.status-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;font-size:12px;font-family:'DM Mono',monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+.status-badge.on{background:var(--green-dim);border-color:var(--green-border);color:var(--green)}
+.pulse{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pulse.anim{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
-.topbar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-icon { width: 36px; height: 36px; background: var(--green-dim); border: 1px solid var(--green-border); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 18px; }
-.brand-name { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
-.brand-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+.alert-banner{background:var(--green-dim);border:1px solid var(--green-border);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--green);display:none;align-items:center;gap:10px;margin-bottom:20px}
+.alert-banner.show{display:flex}
 
-.alert-toggle { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.toggle-row { display: flex; align-items: center; gap: 10px; }
-.toggle-label { font-size: 13px; color: var(--text2); font-family: 'DM Mono', monospace; }
-.switch { position: relative; width: 46px; height: 26px; cursor: pointer; }
-.switch input { display: none; }
-.switch-track { position: absolute; inset: 0; background: var(--surface2); border: 1px solid var(--border2); border-radius: 13px; transition: all .25s; }
-.switch input:checked + .switch-track { background: var(--green-dim); border-color: var(--green-border); }
-.switch-thumb { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; background: var(--text3); border-radius: 50%; transition: all .25s; }
-.switch input:checked ~ .switch-thumb { transform: translateX(20px); background: var(--green); }
-.status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-family: 'DM Mono', monospace; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
-.status-badge.on { background: var(--green-dim); border-color: var(--green-border); color: var(--green); }
-.pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.pulse.anim { animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+.tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:4px;margin-bottom:24px}
+.tab{flex:1;padding:8px 10px;font-size:13px;font-weight:500;color:var(--text2);border:none;background:none;border-radius:var(--radius-sm);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.tab-count{background:var(--surface);font-size:11px;padding:1px 6px;border-radius:10px;font-family:'DM Mono',monospace}
+.tab.active .tab-count{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
 
-.alert-banner { background: var(--green-dim); border: 1px solid var(--green-border); border-radius: var(--radius); padding: 12px 16px; font-size: 13px; color: var(--green); display: none; align-items: center; gap: 10px; margin-bottom: 20px; }
-.alert-banner.show { display: flex; }
+.page{display:none}
+.page.active{display:block}
 
-.tabs { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; margin-bottom: 24px; }
-.tab { flex: 1; padding: 8px 12px; font-size: 13px; font-weight: 500; color: var(--text2); border: none; background: none; border-radius: var(--radius-sm); cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.tab:hover { color: var(--text); }
-.tab.active { background: var(--surface2); color: var(--text); border: 1px solid var(--border2); }
-.tab-count { background: var(--surface); font-size: 11px; padding: 1px 6px; border-radius: 10px; font-family: 'DM Mono', monospace; }
-.tab.active .tab-count { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); }
+.action-bar{display:flex;gap:8px;margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text2);transition:all .2s;font-family:inherit}
+.btn:hover{background:var(--surface2);color:var(--text)}
+.btn.primary{background:var(--green-dim);border-color:var(--green-border);color:var(--green)}
+.btn.primary:hover{background:rgba(74,222,128,.2)}
+.btn.danger{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.2);color:var(--red)}
+.btn.danger:hover{background:rgba(248,113,113,.15)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn svg{width:15px;height:15px;flex-shrink:0}
 
-.page { display: none; }
-.page.active { display: block; }
+.last-check{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right;margin-bottom:12px;height:16px}
+.section-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;font-family:'DM Mono',monospace}
 
-.action-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-.btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: var(--surface); color: var(--text2); transition: all .2s; font-family: inherit; }
-.btn:hover { border-color: var(--border2); background: var(--surface2); color: var(--text); }
-.btn.primary { background: var(--green-dim); border-color: var(--green-border); color: var(--green); }
-.btn.primary:hover { background: rgba(74,222,128,0.2); }
-.btn:disabled { opacity: .4; cursor: not-allowed; }
-.btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+.empty-state{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-state svg{width:32px;height:32px;margin-bottom:12px;opacity:.3}
+.empty-state p{font-size:13px}
 
-.last-check { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; text-align: right; margin-bottom: 12px; height: 16px; }
+.spinner{width:16px;height:16px;border:2px solid var(--border2);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-.section-label { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; font-family: 'DM Mono', monospace; }
+.progress-wrap{margin-bottom:16px}
+.progress-bar-bg{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.progress-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width .4s ease}
+.progress-label{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace}
 
-.empty-state { text-align: center; padding: 48px 20px; color: var(--text3); }
-.empty-state svg { width: 32px; height: 32px; margin-bottom: 12px; opacity: .3; }
-.empty-state p { font-size: 13px; }
+/* 딜 카드 */
+.deal-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:10px;transition:border-color .2s}
+.deal-card:hover{border-color:var(--border2)}
+.deal-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px}
+.deal-route{font-size:15px;font-weight:600;letter-spacing:-0.2px}
+.deal-sched{font-size:12px;color:var(--text2);margin-top:3px}
+.price-block{text-align:right;flex-shrink:0}
+.price-main{font-size:18px;font-weight:600;color:var(--green);font-family:'DM Mono',monospace}
+.price-saving{font-size:11px;color:var(--green);background:var(--green-dim);border:1px solid var(--green-border);padding:2px 7px;border-radius:10px;margin-top:4px;display:inline-block;font-family:'DM Mono',monospace}
+.deal-meta{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+.meta-item{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:5px}
+.deal-footer{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border)}
+.reason-pill{font-size:11px;color:var(--blue);background:var(--blue-dim);border:1px solid rgba(96,165,250,.2);padding:3px 9px;border-radius:10px}
+.link-group{display:flex;gap:8px}
+.link-btn{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);padding:5px 10px;border-radius:var(--radius-sm);text-decoration:none;transition:all .2s}
+.link-btn:hover{color:var(--text);border-color:var(--border2)}
+.link-btn svg{width:12px;height:12px}
 
-.loading-state { text-align: center; padding: 40px; color: var(--text2); font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-.spinner { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--green); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* 이벤트 카드 */
+.event-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;gap:14px;transition:border-color .2s}
+.event-card:hover{border-color:var(--border2)}
+.airline-badge{width:38px;height:38px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--text2);font-family:'DM Mono',monospace;flex-shrink:0}
+.event-body{flex:1;min-width:0}
+.event-airline{font-size:11px;color:var(--text3);margin-bottom:3px;font-family:'DM Mono',monospace}
+.event-name{font-size:14px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
+.event-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.tag{font-size:10px;font-weight:600;padding:2px 7px;border-radius:4px;letter-spacing:.05em;font-family:'DM Mono',monospace}
+.tag-new{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
+.tag-hot{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.tag-end{background:var(--amber-dim);color:var(--amber);border:1px solid rgba(251,191,36,.2)}
 
-.deal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px; transition: border-color .2s; }
-.deal-card:hover { border-color: var(--border2); }
-.deal-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
-.deal-route { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
-.deal-sched { font-size: 12px; color: var(--text2); margin-top: 3px; display: flex; align-items: center; gap: 5px; }
-.price-block { text-align: right; flex-shrink: 0; }
-.price-main { font-size: 18px; font-weight: 600; color: var(--green); font-family: 'DM Mono', monospace; }
-.price-saving { font-size: 11px; color: var(--green); background: var(--green-dim); border: 1px solid var(--green-border); padding: 2px 7px; border-radius: 10px; margin-top: 4px; display: inline-block; font-family: 'DM Mono', monospace; }
-.deal-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
-.meta-item { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 5px; }
-.meta-item svg { width: 13px; height: 13px; opacity: .5; }
-.deal-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); }
-.reason-pill { font-size: 11px; color: var(--blue); background: var(--blue-dim); border: 1px solid rgba(96,165,250,0.2); padding: 3px 9px; border-radius: 10px; }
-.link-group { display: flex; gap: 8px; }
-.link-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text2); background: var(--surface2); border: 1px solid var(--border); padding: 5px 10px; border-radius: var(--radius-sm); text-decoration: none; transition: all .2s; }
-.link-btn:hover { color: var(--text); border-color: var(--border2); }
-.link-btn svg { width: 12px; height: 12px; }
+/* 로그 */
+.log-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
+.log-row{display:flex;align-items:flex-start;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.log-row:last-child{border-bottom:none}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.log-dot.success{background:var(--green)}
+.log-dot.fail{background:var(--red)}
+.log-dot.info{background:var(--blue)}
+.log-dot.skip{background:var(--text3)}
+.log-body{flex:1;min-width:0}
+.log-msg{color:var(--text);font-weight:500}
+.log-detail{font-size:12px;color:var(--text2);margin-top:2px}
+.log-route{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);margin-top:2px}
+.log-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.log-ts{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;white-space:nowrap}
+.log-badge{font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;font-family:'DM Mono',monospace}
+.log-badge.success{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border)}
+.log-badge.fail{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2)}
+.log-badge.info{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
+.log-badge.skip{background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.log-stats{display:flex;gap:8px;margin-bottom:16px}
+.stat-chip{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;text-align:center}
+.stat-num{font-size:20px;font-weight:600;font-family:'DM Mono',monospace}
+.stat-num.success{color:var(--green)}
+.stat-num.fail{color:var(--red)}
+.stat-num.info{color:var(--blue)}
+.stat-num.skip{color:var(--text3)}
+.stat-label{font-size:11px;color:var(--text3);margin-top:2px}
 
-.event-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 14px; transition: border-color .2s; }
-.event-card:hover { border-color: var(--border2); }
-.airline-badge { width: 38px; height: 38px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--text2); font-family: 'DM Mono', monospace; flex-shrink: 0; letter-spacing: .05em; }
-.event-body { flex: 1; min-width: 0; }
-.event-airline { font-size: 11px; color: var(--text3); margin-bottom: 3px; font-family: 'DM Mono', monospace; letter-spacing: .04em; }
-.event-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
-.event-detail { font-size: 12px; color: var(--text2); line-height: 1.7; }
-.event-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-.tag { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; letter-spacing: .05em; font-family: 'DM Mono', monospace; }
-.tag-new { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(96,165,250,.2); }
-.tag-hot { background: rgba(248,113,113,.1); color: var(--red); border: 1px solid rgba(248,113,113,.2); }
-.tag-end { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251,191,36,.2); }
-
-.settings-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 20px; }
-.settings-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); }
-.settings-row:last-child { border-bottom: none; }
-.settings-label { font-size: 13px; font-weight: 500; }
-.settings-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
-.settings-val { font-size: 13px; color: var(--text2); font-family: 'DM Mono', monospace; }
-.settings-input { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 12px; font-size: 13px; color: var(--text); width: 240px; font-family: 'DM Mono', monospace; outline: none; transition: border-color .2s; }
-.settings-input:focus { border-color: rgba(74,222,128,.4); }
-.settings-select { background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 6px 10px; font-size: 13px; color: var(--text); font-family: inherit; outline: none; cursor: pointer; }
-.save-btn { display: flex; align-items: center; gap: 6px; padding: 9px 18px; background: var(--green-dim); border: 1px solid var(--green-border); color: var(--green); border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; transition: all .2s; }
-.save-btn:hover { background: rgba(74,222,128,.2); }
-.result-msg { font-size: 12px; padding: 8px 12px; border-radius: var(--radius-sm); margin-top: 8px; display: none; }
-.result-msg.ok { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-border); display: block; }
-.result-msg.fail { background: rgba(248,113,113,.1); color: var(--red); border: 1px solid rgba(248,113,113,.2); display: block; }
-.chatid-result { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--green); background: var(--green-dim); border: 1px solid var(--green-border); padding: 10px 14px; border-radius: var(--radius-sm); margin-top: 10px; display: none; }
+/* 설정 */
+.settings-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.settings-row:last-child{border-bottom:none}
+.settings-label{font-size:13px;font-weight:500}
+.settings-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.settings-val{font-size:13px;color:var(--text2);font-family:'DM Mono',monospace}
+.settings-input{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:7px 12px;font-size:13px;color:var(--text);width:240px;font-family:'DM Mono',monospace;outline:none;transition:border-color .2s}
+.settings-input:focus{border-color:rgba(74,222,128,.4)}
+.settings-select{background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:6px 10px;font-size:13px;color:var(--text);font-family:inherit;outline:none;cursor:pointer}
+.save-btn{display:flex;align-items:center;gap:6px;padding:9px 18px;background:var(--green-dim);border:1px solid var(--green-border);color:var(--green);border-radius:var(--radius-sm);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .2s}
+.save-btn:hover{background:rgba(74,222,128,.2)}
+.result-msg{font-size:12px;padding:8px 12px;border-radius:var(--radius-sm);margin-top:8px;display:none}
+.result-msg.ok{background:var(--green-dim);color:var(--green);border:1px solid var(--green-border);display:block}
+.result-msg.fail{background:rgba(248,113,113,.1);color:var(--red);border:1px solid rgba(248,113,113,.2);display:block}
+.chatid-result{font-family:'DM Mono',monospace;font-size:14px;color:var(--green);background:var(--green-dim);border:1px solid var(--green-border);padding:10px 14px;border-radius:var(--radius-sm);margin-top:10px;display:none}
 </style>
 </head>
 <body>
@@ -163,23 +183,17 @@ body { min-height: 100vh; }
   </div>
 
   <div class="alert-banner" id="alertBanner">
-    <span>🔔</span>
-    <span>실시간 알림 ON — 조건에 맞는 특가 발견 시 텔레그램으로 즉시 알려드립니다.</span>
+    🔔 실시간 알림 ON — 조건에 맞는 특가 발견 시 텔레그램으로 즉시 알려드립니다.
   </div>
 
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('deals',this)">
-      🎫 특가 항공권 <span class="tab-count" id="dealCount">0</span>
-    </button>
-    <button class="tab" onclick="switchTab('events',this)">
-      ⚡ 특가 이벤트 <span class="tab-count" id="eventCount">0</span>
-    </button>
-    <button class="tab" onclick="switchTab('settings',this)">
-      ⚙️ 설정
-    </button>
+    <button class="tab active" onclick="switchTab('deals',this)">🎫 특가 항공권 <span class="tab-count" id="dealCount">0</span></button>
+    <button class="tab" onclick="switchTab('events',this)">⚡ 특가 이벤트 <span class="tab-count" id="eventCount">0</span></button>
+    <button class="tab" onclick="switchTab('logs',this);loadLogs()">📋 알림 로그</button>
+    <button class="tab" onclick="switchTab('settings',this)">⚙️ 설정</button>
   </div>
 
-  <!-- 특가 항공권 탭 -->
+  <!-- 특가 항공권 -->
   <div class="page active" id="page-deals">
     <div class="action-bar">
       <button class="btn primary" onclick="searchDeals()" id="dealSearchBtn">
@@ -191,13 +205,13 @@ body { min-height: 100vh; }
     <div class="section-label">검색 결과</div>
     <div id="dealsList">
       <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3.055 11H5a2 2 0 0 1 2 2v1a2 2 0 0 0 2 2 2 2 0 0 1 2 2v2.945M8 3.935V5.5A2.5 2.5 0 0 0 10.5 8h.5a2 2 0 0 1 2 2 2 2 0 0 0 4 0 2 2 0 0 1 2-2h1.064M15 20.488V18a2 2 0 0 1 2-2h3.064"/><circle cx="12" cy="12" r="9"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M3.055 11H5a2 2 0 0 1 2 2v1a2 2 0 0 0 2 2 2 2 0 0 1 2 2v2.945"/><path d="M8 3.935V5.5A2.5 2.5 0 0 0 10.5 8h.5a2 2 0 0 1 2 2 2 2 0 0 0 4 0 2 2 0 0 1 2-2h1.064"/></svg>
         <p>검색 버튼을 눌러 오늘의 특가를 확인하세요</p>
       </div>
     </div>
   </div>
 
-  <!-- 특가 이벤트 탭 -->
+  <!-- 특가 이벤트 -->
   <div class="page" id="page-events">
     <div class="action-bar">
       <button class="btn primary" onclick="searchEvents()" id="eventSearchBtn">
@@ -215,48 +229,55 @@ body { min-height: 100vh; }
     </div>
   </div>
 
-  <!-- 설정 탭 -->
-  <div class="page" id="page-settings">
+  <!-- 알림 로그 -->
+  <div class="page" id="page-logs">
+    <div class="action-bar">
+      <button class="btn" onclick="loadLogs()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+        새로고침
+      </button>
+      <button class="btn danger" onclick="clearLogs()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        로그 초기화
+      </button>
+    </div>
+    <div class="log-stats" id="logStats"></div>
+    <div class="section-label">알림 기록 (최신순)</div>
+    <div id="logList">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p>아직 로그가 없습니다</p>
+      </div>
+    </div>
+  </div>
 
+  <!-- 설정 -->
+  <div class="page" id="page-settings">
     <div class="section-label">텔레그램 연결</div>
     <div class="settings-block">
       <div class="settings-row">
-        <div>
-          <div class="settings-label">봇 토큰</div>
-          <div class="settings-sub">@BotFather 에서 발급받은 토큰</div>
-        </div>
+        <div><div class="settings-label">봇 토큰</div><div class="settings-sub">@BotFather 에서 발급받은 토큰</div></div>
         <input class="settings-input" type="password" id="inputToken" placeholder="1234567890:AAH...">
       </div>
       <div class="settings-row">
-        <div>
-          <div class="settings-label">Chat ID</div>
-          <div class="settings-sub">봇에게 /start 보낸 후 자동 조회 가능</div>
-        </div>
+        <div><div class="settings-label">Chat ID</div><div class="settings-sub">봇에게 /start 보낸 후 자동 조회 가능</div></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <input class="settings-input" type="text" id="inputChatId" placeholder="123456789">
+          <input class="settings-input" type="text" id="inputChatId" placeholder="123456789 또는 -1001234567890">
           <button class="btn" onclick="getChatId()" style="padding:6px 12px;font-size:12px">chat_id 자동 조회</button>
           <div class="chatid-result" id="chatIdResult"></div>
         </div>
       </div>
       <div class="settings-row">
-        <div>
-          <div class="settings-label">연결 테스트</div>
-          <div class="settings-sub">테스트 메시지를 텔레그램으로 발송</div>
-        </div>
-        <button class="btn primary" onclick="testTelegram()" id="testBtn">테스트 메시지 발송</button>
+        <div><div class="settings-label">연결 테스트</div><div class="settings-sub">테스트 메시지를 텔레그램으로 발송</div></div>
+        <button class="btn primary" onclick="testTelegram()">테스트 메시지 발송</button>
       </div>
-      <div style="padding:0 18px 14px">
-        <div class="result-msg" id="testResult"></div>
-      </div>
+      <div style="padding:0 18px 14px"><div class="result-msg" id="testResult"></div></div>
     </div>
 
     <div class="section-label">알림 설정</div>
     <div class="settings-block">
       <div class="settings-row">
-        <div>
-          <div class="settings-label">실시간 알림</div>
-          <div class="settings-sub">조건 충족 시 텔레그램으로 즉시 발송</div>
-        </div>
+        <div><div class="settings-label">실시간 알림</div><div class="settings-sub">조건 충족 시 텔레그램으로 즉시 발송</div></div>
         <label class="switch">
           <input type="checkbox" id="settingsToggle" onchange="syncToggle(this.checked)">
           <div class="switch-track"></div>
@@ -264,10 +285,7 @@ body { min-height: 100vh; }
         </label>
       </div>
       <div class="settings-row">
-        <div>
-          <div class="settings-label">검색 주기</div>
-          <div class="settings-sub">너무 짧으면 사이트 차단될 수 있음</div>
-        </div>
+        <div><div class="settings-label">검색 주기</div><div class="settings-sub">너무 짧으면 사이트 차단될 수 있음</div></div>
         <select class="settings-select" id="intervalSelect">
           <option value="15">15분</option>
           <option value="30" selected>30분</option>
@@ -292,7 +310,6 @@ body { min-height: 100vh; }
   </div>
 
 </div>
-
 <script>
 let alertOn = false;
 
@@ -318,8 +335,14 @@ async function loadLast() {
   try {
     const r = await fetch('/api/last');
     const d = await r.json();
-    if (d.deals && d.deals.length) renderDeals(d.deals);
-    if (d.events && d.events.length) renderEvents(d.events);
+    if (d.deals && d.deals.length) {
+      document.getElementById('dealsList').innerHTML = d.deals.map(renderDealCard).join('');
+      document.getElementById('dealCount').textContent = d.deals.length;
+    }
+    if (d.events && d.events.length) {
+      document.getElementById('eventsList').innerHTML = d.events.map((e,i) => renderEventCard(e,i)).join('');
+      document.getElementById('eventCount').textContent = d.events.length;
+    }
     if (d.last_checked) {
       const t = new Date(d.last_checked).toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
       document.getElementById('dealsLastCheck').textContent = '마지막 확인: ' + t;
@@ -347,21 +370,14 @@ function syncToggle(checked) {
 
 async function patchAlert(on) {
   try {
-    await fetch('/api/config', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ alert_on: on })
-    });
+    await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({alert_on: on})});
   } catch(e) {}
 }
 
 function updateStatus(on) {
-  const badge = document.getElementById('statusBadge');
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  badge.className = 'status-badge' + (on ? ' on' : '');
-  dot.className = 'pulse' + (on ? ' anim' : '');
-  txt.textContent = on ? '모니터링 중' : '대기 중';
+  document.getElementById('statusBadge').className = 'status-badge' + (on ? ' on' : '');
+  document.getElementById('statusDot').className = 'pulse' + (on ? ' anim' : '');
+  document.getElementById('statusText').textContent = on ? '모니터링 중' : '대기 중';
 }
 
 function switchTab(name, el) {
@@ -375,39 +391,66 @@ function nowStr() {
   return new Date().toLocaleString('ko-KR',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'});
 }
 
+// ── 특가 검색 (SSE 스트리밍) ─────────────────────────────────
 async function searchDeals() {
   const btn = document.getElementById('dealSearchBtn');
   btn.disabled = true;
-  document.getElementById('dealsList').innerHTML = '<div class="loading-state"><div class="spinner"></div>항공권 가격 검색 중... (1~2분 소요될 수 있어요)</div>';
-  try {
-    const r = await fetch('/api/search/deals', { method: 'POST' });
-    const d = await r.json();
-    if (d.ok) {
-      renderDeals(d.deals);
-      document.getElementById('dealsLastCheck').textContent = '마지막 확인: ' + nowStr();
-      document.getElementById('dealCount').textContent = d.count;
-    } else {
-      document.getElementById('dealsList').innerHTML = `<div class="empty-state"><p style="color:#f87171">${d.error || '검색 오류'}</p></div>`;
+  const list = document.getElementById('dealsList');
+  let found = 0;
+
+  list.innerHTML = `
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-label" id="progressLabel">검색 준비 중...</div>
+    </div>
+    <div id="dealsInner"></div>`;
+
+  const evtSource = new EventSource('/api/search/deals/stream');
+
+  evtSource.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'progress') {
+      const pct = Math.round((data.current / data.total) * 100);
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressLabel').textContent = data.label;
     }
-  } catch(e) {
-    document.getElementById('dealsList').innerHTML = '<div class="empty-state"><p style="color:#f87171">서버 연결 오류</p></div>';
-  }
-  btn.disabled = false;
+    if (data.type === 'deal') {
+      found++;
+      document.getElementById('dealCount').textContent = found;
+      document.getElementById('dealsInner').insertAdjacentHTML('beforeend', renderDealCard(data));
+    }
+    if (data.type === 'done') {
+      evtSource.close();
+      btn.disabled = false;
+      const pw = document.getElementById('progressWrap');
+      if (pw) pw.remove();
+      document.getElementById('dealsLastCheck').textContent = '마지막 확인: ' + nowStr();
+      if (found === 0) {
+        document.getElementById('dealsInner').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><p>현재 조건에 맞는 특가 항공권이 없습니다</p></div>';
+      }
+    }
+  };
+  evtSource.onerror = () => {
+    evtSource.close();
+    btn.disabled = false;
+    if (found === 0) list.innerHTML = '<div class="empty-state"><p style="color:#f87171">검색 중 오류가 발생했습니다</p></div>';
+  };
 }
 
+// ── 이벤트 검색 ──────────────────────────────────────────────
 async function searchEvents() {
   const btn = document.getElementById('eventSearchBtn');
   btn.disabled = true;
-  document.getElementById('eventsList').innerHTML = '<div class="loading-state"><div class="spinner"></div>항공사 이벤트 검색 중...</div>';
+  document.getElementById('eventsList').innerHTML = '<div style="padding:40px;text-align:center;color:var(--text2);font-size:13px;display:flex;align-items:center;justify-content:center;gap:10px"><div class="spinner"></div>이벤트 검색 중...</div>';
   try {
-    const r = await fetch('/api/search/events', { method: 'POST' });
+    const r = await fetch('/api/search/events', {method:'POST'});
     const d = await r.json();
     if (d.ok) {
-      renderEvents(d.events);
-      document.getElementById('eventsLastCheck').textContent = '마지막 확인: ' + nowStr();
+      document.getElementById('eventsList').innerHTML = d.events.length
+        ? d.events.map((e,i) => renderEventCard(e,i)).join('')
+        : '<div class="empty-state"><p>현재 진행 중인 이벤트가 없습니다</p></div>';
       document.getElementById('eventCount').textContent = d.count;
-    } else {
-      document.getElementById('eventsList').innerHTML = `<div class="empty-state"><p style="color:#f87171">${d.error || '검색 오류'}</p></div>`;
+      document.getElementById('eventsLastCheck').textContent = '마지막 확인: ' + nowStr();
     }
   } catch(e) {
     document.getElementById('eventsList').innerHTML = '<div class="empty-state"><p style="color:#f87171">서버 연결 오류</p></div>';
@@ -415,83 +458,110 @@ async function searchEvents() {
   btn.disabled = false;
 }
 
-function renderDeals(deals) {
-  if (!deals || !deals.length) {
-    document.getElementById('dealsList').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg><p>현재 조건에 맞는 특가 항공권이 없습니다</p></div>';
-    document.getElementById('dealCount').textContent = '0';
-    return;
-  }
-  document.getElementById('dealCount').textContent = deals.length;
-  document.getElementById('dealsList').innerHTML = deals.map(d => `
-    <div class="deal-card">
-      <div class="deal-top">
-        <div>
-          <div class="deal-route">${d.route} 왕복</div>
-          <div class="deal-sched">📅 ${d.dep_date} ~ ${d.ret_date} &nbsp;·&nbsp; ${d.schedule}</div>
-        </div>
-        <div class="price-block">
-          <div class="price-main">${d.price.toLocaleString()}원</div>
-          <div class="price-saving">-${d.saving}%</div>
-        </div>
-      </div>
-      <div class="deal-meta">
-        <span class="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>${d.airline}</span>
-        <span class="meta-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>기준가 ${d.limit.toLocaleString()}원</span>
-      </div>
-      <div class="deal-footer">
-        <span class="reason-pill">${d.reason}</span>
-        <div class="link-group">
-          <a href="${d.url}" target="_blank" class="link-btn">네이버항공 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-          <a href="${d.skyscanner_url}" target="_blank" class="link-btn">스카이스캐너 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-        </div>
-      </div>
-    </div>`).join('');
-}
+// ── 로그 ─────────────────────────────────────────────────────
+async function loadLogs() {
+  try {
+    const r = await fetch('/api/logs');
+    const d = await r.json();
+    const logs = d.logs || [];
 
-function renderEvents(events) {
-  if (!events || !events.length) {
-    document.getElementById('eventsList').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><p>현재 진행 중인 이벤트가 없습니다</p></div>';
-    document.getElementById('eventCount').textContent = '0';
-    return;
-  }
-  document.getElementById('eventCount').textContent = events.length;
-  document.getElementById('eventsList').innerHTML = events.map((e, i) => `
-    <div class="event-card">
-      <div class="airline-badge">${e.code}</div>
-      <div class="event-body">
-        <div class="event-airline">${e.airline}</div>
-        <div class="event-name">${e.name}</div>
-        <div class="event-footer">
-          <div style="display:flex;gap:5px">
-            ${i % 3 === 0 ? '<span class="tag tag-hot">HOT</span>' : ''}
-            ${i % 3 === 1 ? '<span class="tag tag-new">NEW</span>' : ''}
-            ${i % 3 === 2 ? '<span class="tag tag-end">마감임박</span>' : ''}
+    const counts = {success:0, fail:0, info:0, skip:0};
+    logs.forEach(l => { if (counts[l.level] !== undefined) counts[l.level]++; });
+
+    document.getElementById('logStats').innerHTML = `
+      <div class="stat-chip"><div class="stat-num success">${counts.success}</div><div class="stat-label">알림 성공</div></div>
+      <div class="stat-chip"><div class="stat-num fail">${counts.fail}</div><div class="stat-label">실패</div></div>
+      <div class="stat-chip"><div class="stat-num info">${counts.info}</div><div class="stat-label">정보</div></div>
+      <div class="stat-chip"><div class="stat-num skip">${counts.skip}</div><div class="stat-label">중복 스킵</div></div>`;
+
+    if (!logs.length) {
+      document.getElementById('logList').innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>아직 로그가 없습니다</p></div>';
+      return;
+    }
+
+    const levelLabel = {success:'성공', fail:'실패', info:'정보', skip:'스킵'};
+    document.getElementById('logList').innerHTML = `
+      <div class="log-card">
+        ${logs.map(l => `
+        <div class="log-row">
+          <div class="log-dot ${l.level}"></div>
+          <div class="log-body">
+            <div class="log-msg">${l.message}</div>
+            ${l.detail ? `<div class="log-detail">${l.detail}</div>` : ''}
+            <div class="log-route">${l.route}</div>
           </div>
-          <a href="${e.url}" target="_blank" class="link-btn" style="font-size:11px">이벤트 보기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-        </div>
-      </div>
-    </div>`).join('');
+          <div class="log-meta">
+            <span class="log-ts">${l.ts.slice(5)}</span>
+            <span class="log-badge ${l.level}">${levelLabel[l.level]||l.level}</span>
+          </div>
+        </div>`).join('')}
+      </div>`;
+  } catch(e) {
+    document.getElementById('logList').innerHTML = '<div class="empty-state"><p style="color:#f87171">로그 불러오기 실패</p></div>';
+  }
 }
 
+async function clearLogs() {
+  if (!confirm('로그를 모두 초기화할까요?')) return;
+  await fetch('/api/logs/clear', {method:'POST'});
+  loadLogs();
+}
+
+// ── 카드 렌더러 ──────────────────────────────────────────────
+function renderDealCard(d) {
+  return `<div class="deal-card">
+    <div class="deal-top">
+      <div>
+        <div class="deal-route">${d.route} 왕복</div>
+        <div class="deal-sched">📅 ${d.dep_date} ~ ${d.ret_date} · ${d.schedule}</div>
+      </div>
+      <div class="price-block">
+        <div class="price-main">${d.price.toLocaleString()}원</div>
+        <div class="price-saving">-${d.saving}%</div>
+      </div>
+    </div>
+    <div class="deal-meta">
+      <span class="meta-item">🏢 ${d.airline}</span>
+      <span class="meta-item">📊 기준가 ${d.limit.toLocaleString()}원</span>
+    </div>
+    <div class="deal-footer">
+      <span class="reason-pill">${d.reason}</span>
+      <div class="link-group">
+        <a href="${d.url}" target="_blank" class="link-btn">네이버항공 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+        <a href="${d.skyscanner_url}" target="_blank" class="link-btn">스카이스캐너 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderEventCard(e, i) {
+  const tags = i%3===0?'<span class="tag tag-hot">HOT</span>':i%3===1?'<span class="tag tag-new">NEW</span>':'<span class="tag tag-end">마감임박</span>';
+  return `<div class="event-card">
+    <div class="airline-badge">${e.code}</div>
+    <div class="event-body">
+      <div class="event-airline">${e.airline}</div>
+      <div class="event-name">${e.name}</div>
+      <div class="event-footer">
+        <div>${tags}</div>
+        <a href="${e.url}" target="_blank" class="link-btn" style="font-size:11px">이벤트 보기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="11" height="11"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── 설정 ─────────────────────────────────────────────────────
 async function getChatId() {
   const token = document.getElementById('inputToken').value.trim();
   if (!token) { alert('봇 토큰을 먼저 입력하세요'); return; }
   const el = document.getElementById('chatIdResult');
-  el.style.display = 'block';
-  el.textContent = '조회 중...';
+  el.style.display = 'block'; el.textContent = '조회 중...';
   try {
-    const r = await fetch('/api/telegram/chatid', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ token })
-    });
+    const r = await fetch('/api/telegram/chatid', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token})});
     const d = await r.json();
     if (d.ok) {
       el.textContent = `chat_id: ${d.chat_id}  (${d.name})`;
       document.getElementById('inputChatId').value = d.chat_id;
-    } else {
-      el.style.color = '#f87171';
-      el.textContent = d.error;
-    }
+    } else { el.style.color='#f87171'; el.textContent = d.error; }
   } catch(e) { el.textContent = '오류 발생'; }
 }
 
@@ -503,10 +573,7 @@ async function testTelegram() {
   if (!token || !chatId) { el.className = 'result-msg fail'; el.textContent = '토큰과 chat_id를 입력하세요'; return; }
   el.textContent = '발송 중...'; el.style.display = 'block';
   try {
-    const r = await fetch('/api/telegram/test', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ token, chat_id: chatId })
-    });
+    const r = await fetch('/api/telegram/test', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token, chat_id: chatId})});
     const d = await r.json();
     el.className = d.ok ? 'result-msg ok' : 'result-msg fail';
     el.textContent = d.ok ? '✓ 텔레그램으로 테스트 메시지를 발송했습니다' : '✗ ' + d.error;
@@ -519,13 +586,10 @@ async function saveConfig() {
   const interval = parseInt(document.getElementById('intervalSelect').value);
   const el = document.getElementById('saveResult');
   try {
-    const body = { interval_minutes: interval, alert_on: alertOn };
+    const body = {interval_minutes: interval, alert_on: alertOn};
     if (token) body.telegram_token = token;
     if (chatId) body.telegram_chat_id = chatId;
-    const r = await fetch('/api/config', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify(body)
-    });
+    const r = await fetch('/api/config', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
     const d = await r.json();
     el.className = d.ok ? 'result-msg ok' : 'result-msg fail';
     el.textContent = d.ok ? '✓ 설정이 저장됐습니다' : '저장 실패';
