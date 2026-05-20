@@ -223,7 +223,7 @@ body::before{
       <div class="toggle-row">
         <span class="tlabel" id="toggleLabel">알림 OFF</span>
         <label class="sw">
-          <input type="checkbox" id="mainToggle" onchange="onToggle(this.checked)">
+          <input type="checkbox" id="mainToggle" onclick="requestToggleFromTop(event)">
           <div class="sw-track"></div><div class="sw-thumb"></div>
         </label>
       </div>
@@ -383,6 +383,22 @@ const DEST_GROUPS = {{ dest_groups|safe }};
 
 let alertOn = false;
 let activeDestTab = DEST_GROUPS[0].id;
+
+async function loadPublicStatus() {
+  try {
+    const r = await fetch('/api/public/status');
+    const s = await r.json();
+
+    alertOn = !!s.alert_on;
+    document.getElementById('mainToggle').checked = alertOn;
+    const st = document.getElementById('settingsToggle');
+    if (st) st.checked = alertOn;
+
+    document.getElementById('toggleLabel').textContent = alertOn ? '알림 ON' : '알림 OFF';
+    document.getElementById('alertBanner').className = 'alert-banner' + (alertOn ? ' show' : '');
+    updateStatus(alertOn);
+  } catch(e) {}
+}
 // 각 그룹별 검색 결과 count
 const groupCounts = {};
 DEST_GROUPS.forEach(g => groupCounts[g.id] = 0);
@@ -618,7 +634,12 @@ async function loadConfig() {
     if (cfg.telegram_token_masked) document.getElementById('inputToken').placeholder=cfg.telegram_token_masked;
     if (cfg.telegram_chat_id) document.getElementById('inputChatId').value=cfg.telegram_chat_id;
     document.getElementById('intervalSelect').value=String(cfg.interval_minutes||30);
-    if (cfg.alert_on) { alertOn=true; document.getElementById('mainToggle').checked=true; document.getElementById('settingsToggle').checked=true; updateStatus(true); document.getElementById('alertBanner').className='alert-banner show'; document.getElementById('toggleLabel').textContent='알림 ON'; }
+    alertOn = !!cfg.alert_on;
+    document.getElementById('mainToggle').checked = alertOn;
+    document.getElementById('settingsToggle').checked = alertOn;
+    updateStatus(alertOn);
+    document.getElementById('alertBanner').className = 'alert-banner' + (alertOn ? ' show' : '');
+    document.getElementById('toggleLabel').textContent = alertOn ? '알림 ON' : '알림 OFF';
     // 가격 기준 로드
     if (cfg.price_limits) {
       const p = cfg.price_limits;
@@ -674,20 +695,63 @@ async function saveConfig(){
 }
 
 // ── 토글 ─────────────────────────────────────────────────
-function onToggle(checked){
-  alertOn=checked;
-  document.getElementById('settingsToggle').checked=checked;
-  document.getElementById('toggleLabel').textContent=checked?'알림 ON':'알림 OFF';
-  document.getElementById('alertBanner').className='alert-banner'+(checked?' show':'');
-  updateStatus(checked);
-  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_on:checked})}).catch(()=>{});
+async function requestToggleFromTop(event){
+  if (event) event.preventDefault();
+
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+
+    if (!d.verified) {
+      await loadPublicStatus();
+      alert('실시간 알림 ON/OFF는 관리자 설정에서만 변경할 수 있습니다.');
+      const settingsTab = [...document.querySelectorAll('.mtab')]
+        .find(b => b.textContent.includes('설정'));
+      if (settingsTab) {
+        switchMain('settings', settingsTab);
+        initSettings();
+      }
+      return;
+    }
+
+    await saveAlertOn(!alertOn);
+  } catch(e) {
+    await loadPublicStatus();
+  }
 }
-function syncToggle(checked){
-  alertOn=checked;document.getElementById('mainToggle').checked=checked;
-  document.getElementById('toggleLabel').textContent=checked?'알림 ON':'알림 OFF';
-  document.getElementById('alertBanner').className='alert-banner'+(checked?' show':'');
+
+async function saveAlertOn(checked){
+  const r = await fetch('/api/config', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({alert_on:checked})
+  });
+
+  if (!r.ok) {
+    await loadPublicStatus();
+    alert('관리자 인증 후 변경할 수 있습니다.');
+    return false;
+  }
+
+  const d = await r.json();
+  if (!d.ok) {
+    await loadPublicStatus();
+    alert(d.error || '설정 저장 실패');
+    return false;
+  }
+
+  alertOn = checked;
+  document.getElementById('mainToggle').checked = checked;
+  const st = document.getElementById('settingsToggle');
+  if (st) st.checked = checked;
+  document.getElementById('toggleLabel').textContent = checked ? '알림 ON' : '알림 OFF';
+  document.getElementById('alertBanner').className = 'alert-banner' + (checked ? ' show' : '');
   updateStatus(checked);
-  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_on:checked})}).catch(()=>{});
+  return true;
+}
+
+function syncToggle(checked){
+  saveAlertOn(checked);
 }
 function updateStatus(on){
   document.getElementById('statusBadge').className='sbadge'+(on?' on':'');
@@ -710,6 +774,8 @@ function nowStr(){return new Date().toLocaleString('ko-KR',{month:'long',day:'nu
 
 // ── 시작 ─────────────────────────────────────────────────
 initDestTabs();
+loadPublicStatus();
+setInterval(loadPublicStatus, 30000);
 // 이전 결과 불러오기
 fetch('/api/last').then(r=>r.json()).then(d=>{
   if(d.deals&&d.deals.length){
