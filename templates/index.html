@@ -298,17 +298,14 @@ body::before{
     <div id="authWall">
       <div class="auth-wall">
         <h3>🔒 FARM OWNER ONLY</h3>
-        <p>설정 페이지는 농장 주인만 접근 가능합니다.<br>등록된 메일로 인증코드를 발송해드립니다.</p>
+        <p>설정 페이지는 농장 주인만 접근 가능합니다.<br>비밀번호를 입력하세요.</p>
         <div class="auth-form">
-          <input type="email" id="authEmail" placeholder="taehyunc8@gmail.com" value="taehyunc8@gmail.com" readonly style="color:var(--text3)">
-          <button class="btn pri" onclick="sendCode()" id="sendCodeBtn" style="width:100%;justify-content:center">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
-            인증코드 발송
+          <input type="password" id="authCode" placeholder="비밀번호 입력"
+                 style="font-size:16px;letter-spacing:.1em"
+                 onkeydown="if(event.key==='Enter')verifyCode()">
+          <button class="btn gold" onclick="verifyCode()" style="width:100%;justify-content:center">
+            🔓 입장하기
           </button>
-          <div id="codeStep" style="display:none;width:100%;flex-direction:column;gap:8px">
-            <input type="text" id="authCode" placeholder="6자리 코드 입력" maxlength="6" style="letter-spacing:.3em;font-size:18px">
-            <button class="btn pri" onclick="verifyCode()" style="width:100%;justify-content:center">확인</button>
-          </div>
           <div class="rmsg" id="authMsg"></div>
         </div>
       </div>
@@ -587,29 +584,12 @@ async function initSettings() {
   else { document.getElementById('authWall').style.display='block'; document.getElementById('settingsContent').style.display='none'; }
 }
 
-async function sendCode() {
-  const btn = document.getElementById('sendCodeBtn'); btn.disabled=true;
-  const msg = document.getElementById('authMsg');
-  msg.className='rmsg'; msg.style.display='none';
-  try {
-    const r = await fetch('/api/auth/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'taehyunc8@gmail.com'})});
-    const d = await r.json();
-    if (d.ok) {
-      document.getElementById('codeStep').style.display='flex';
-      msg.className='rmsg ok'; msg.textContent='✓ '+d.message;
-    } else {
-      msg.className='rmsg fail'; msg.textContent='✗ '+d.error;
-    }
-  } catch(e){msg.className='rmsg fail';msg.textContent='서버 오류';}
-  btn.disabled=false;
-}
-
 async function verifyCode() {
-  const code = document.getElementById('authCode').value.trim();
+  const pw = document.getElementById('authCode').value.trim();
   const msg = document.getElementById('authMsg');
-  if (!code) return;
+  if (!pw) return;
   try {
-    const r = await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    const r = await fetch('/api/auth/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
     const d = await r.json();
     if (d.ok) { showSettingsContent(); await loadConfig(); }
     else { msg.className='rmsg fail'; msg.textContent='✗ '+d.error; document.getElementById('authCode').value=''; document.getElementById('authCode').focus(); }
@@ -626,7 +606,6 @@ async function logout() {
   document.getElementById('settingsContent').style.display='none';
   document.getElementById('authWall').style.display='block';
   document.getElementById('authCode').value='';
-  document.getElementById('codeStep').style.display='none';
 }
 
 // ── 설정 저장 ─────────────────────────────────────────────
