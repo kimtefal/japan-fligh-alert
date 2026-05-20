@@ -19,7 +19,7 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-DATA_FILE = Path("data.json")
+DATA_FILE = Path("/tmp/data.json")
 
 # ── 기본 설정 ────────────────────────────────────────────────
 DEFAULT_CONFIG = {
