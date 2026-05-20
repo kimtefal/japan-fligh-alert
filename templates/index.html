@@ -359,11 +359,12 @@ body::before{
       </div>
 
       <div class="slabel">가격 기준</div>
-      <div class="sblock"><div class="item-header">💰 <span>Price Limits</span></div>
-        <div class="srow"><div class="slb">도쿄 · 오사카</div><span style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace">200,000원</span></div>
-        <div class="srow"><div class="slb">후쿠오카</div><span style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace">160,000원</span></div>
-        <div class="srow"><div class="slb">삿포로 · 오키나와</div><span style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace">300,000원</span></div>
-        <div class="srow"><div class="slb">나고야 · 소도시</div><span style="font-size:13px;color:var(--text2);font-family:'DM Mono',monospace">250,000원</span></div>
+      <div class="sblock"><div class="item-header">💰 <span>Price Limits</span> <span style="color:var(--text3);font-weight:400;font-size:9px;margin-left:6px">단위: 원 (왕복)</span></div>
+        <div class="srow"><div><div class="slb">도쿄 · 오사카</div><div class="ssb">NRT · HND · KIX · ITM</div></div><input class="sinput sm" type="number" id="price_tokyo_osaka" value="200000" min="50000" max="999999" step="1000"></div>
+        <div class="srow"><div><div class="slb">후쿠오카</div><div class="ssb">FUK</div></div><input class="sinput sm" type="number" id="price_fukuoka" value="160000" min="50000" max="999999" step="1000"></div>
+        <div class="srow"><div><div class="slb">삿포로 · 오키나와</div><div class="ssb">CTS · OKA</div></div><input class="sinput sm" type="number" id="price_sapporo_okinawa" value="300000" min="50000" max="999999" step="1000"></div>
+        <div class="srow"><div><div class="slb">나고야</div><div class="ssb">NGO</div></div><input class="sinput sm" type="number" id="price_nagoya" value="250000" min="50000" max="999999" step="1000"></div>
+        <div class="srow"><div><div class="slb">소도시</div><div class="ssb">FSZ · HKD · TAK · MYJ</div></div><input class="sinput sm" type="number" id="price_other" value="250000" min="50000" max="999999" step="1000"></div>
       </div>
 
       <button class="save-btn" onclick="saveConfig()">
@@ -618,6 +619,15 @@ async function loadConfig() {
     if (cfg.telegram_chat_id) document.getElementById('inputChatId').value=cfg.telegram_chat_id;
     document.getElementById('intervalSelect').value=String(cfg.interval_minutes||30);
     if (cfg.alert_on) { alertOn=true; document.getElementById('mainToggle').checked=true; document.getElementById('settingsToggle').checked=true; updateStatus(true); document.getElementById('alertBanner').className='alert-banner show'; document.getElementById('toggleLabel').textContent='알림 ON'; }
+    // 가격 기준 로드
+    if (cfg.price_limits) {
+      const p = cfg.price_limits;
+      if (p.NRT) document.getElementById('price_tokyo_osaka').value = p.NRT;
+      if (p.FUK) document.getElementById('price_fukuoka').value = p.FUK;
+      if (p.CTS) document.getElementById('price_sapporo_okinawa').value = p.CTS;
+      if (p.NGO) document.getElementById('price_nagoya').value = p.NGO;
+      if (p.FSZ) document.getElementById('price_other').value = p.FSZ;
+    }
   } catch(e){}
 }
 
@@ -645,7 +655,20 @@ async function saveConfig(){
   const chatId=document.getElementById('inputChatId').value.trim();
   const interval=parseInt(document.getElementById('intervalSelect').value);
   const el=document.getElementById('saveResult');
-  try{const body={interval_minutes:interval,alert_on:alertOn};if(token)body.telegram_token=token;if(chatId)body.telegram_chat_id=chatId;
+  try{
+    const tokeyo  = parseInt(document.getElementById('price_tokyo_osaka').value)||200000;
+    const tfukuoka= parseInt(document.getElementById('price_fukuoka').value)||160000;
+    const tsapporo= parseInt(document.getElementById('price_sapporo_okinawa').value)||300000;
+    const tnagoya = parseInt(document.getElementById('price_nagoya').value)||250000;
+    const tother  = parseInt(document.getElementById('price_other').value)||250000;
+    const price_limits = {
+      NRT:tokeyo,HND:tokeyo,KIX:tokeyo,ITM:tokeyo,
+      FUK:tfukuoka,
+      CTS:tsapporo,OKA:tsapporo,
+      NGO:tnagoya,
+      FSZ:tother,HKD:tother,TAK:tother,MYJ:tother
+    };
+    const body={interval_minutes:interval,alert_on:alertOn,price_limits};if(token)body.telegram_token=token;if(chatId)body.telegram_chat_id=chatId;
     const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();
     el.className=d.ok?'rmsg ok':'rmsg fail';el.textContent=d.ok?'✓ 설정이 저장됐습니다':'저장 실패';}catch(e){el.className='rmsg fail';el.textContent='서버 오류';}
 }
