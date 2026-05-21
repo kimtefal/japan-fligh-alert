@@ -216,14 +216,14 @@ body::before{
       <div class="brand-icon">🌾</div>
       <div>
         <div class="brand-name"><span style="color:var(--sky)">✈ JAPAN</span><br><span style="color:var(--green)">DEAL FARM</span></div>
-        <div class="brand-sub">인천·김포 출발 · 10개월 이내 · 10개 도시</div>
+        <div class="brand-sub">인천·김포 출발 · 1개월 뒤부터 8개월 · 10개 도시</div>
       </div>
     </div>
     <div class="topright">
       <div class="toggle-row">
         <span class="tlabel" id="toggleLabel">알림 OFF</span>
         <label class="sw">
-          <input type="checkbox" id="mainToggle" onchange="onToggle(this.checked)">
+          <input type="checkbox" id="mainToggle" onclick="requestToggleFromTop(event)">
           <div class="sw-track"></div><div class="sw-thumb"></div>
         </label>
       </div>
@@ -253,7 +253,7 @@ body::before{
     <div id="allProgress" style="display:none">
       <div class="prog-wrap">
         <div class="prog-bg"><div class="prog-fill" id="allProgFill" style="width:0%"></div></div>
-        <div class="prog-label" id="allProgLabel">전체 검색 준비 중...</div>
+        <div class="prog-label" id="allProgLabel">검색 준비 중...</div>
       </div>
     </div>
     <div class="lchk" id="dealsLastCheck"></div>
@@ -383,6 +383,20 @@ const DEST_GROUPS = {{ dest_groups|safe }};
 
 let alertOn = false;
 let activeDestTab = DEST_GROUPS[0].id;
+
+async function loadPublicStatus() {
+  try {
+    const r = await fetch('/api/public/status');
+    const s = await r.json();
+    alertOn = !!s.alert_on;
+    document.getElementById('mainToggle').checked = alertOn;
+    const st = document.getElementById('settingsToggle');
+    if (st) st.checked = alertOn;
+    document.getElementById('toggleLabel').textContent = alertOn ? '알림 ON' : '알림 OFF';
+    document.getElementById('alertBanner').className = 'alert-banner' + (alertOn ? ' show' : '');
+    updateStatus(alertOn);
+  } catch(e) {}
+}
 // 각 그룹별 검색 결과 count
 const groupCounts = {};
 DEST_GROUPS.forEach(g => groupCounts[g.id] = 0);
@@ -618,7 +632,12 @@ async function loadConfig() {
     if (cfg.telegram_token_masked) document.getElementById('inputToken').placeholder=cfg.telegram_token_masked;
     if (cfg.telegram_chat_id) document.getElementById('inputChatId').value=cfg.telegram_chat_id;
     document.getElementById('intervalSelect').value=String(cfg.interval_minutes||30);
-    if (cfg.alert_on) { alertOn=true; document.getElementById('mainToggle').checked=true; document.getElementById('settingsToggle').checked=true; updateStatus(true); document.getElementById('alertBanner').className='alert-banner show'; document.getElementById('toggleLabel').textContent='알림 ON'; }
+    alertOn = !!cfg.alert_on;
+    document.getElementById('mainToggle').checked = alertOn;
+    document.getElementById('settingsToggle').checked = alertOn;
+    updateStatus(alertOn);
+    document.getElementById('alertBanner').className = 'alert-banner' + (alertOn ? ' show' : '');
+    document.getElementById('toggleLabel').textContent = alertOn ? '알림 ON' : '알림 OFF';
     // 가격 기준 로드
     if (cfg.price_limits) {
       const p = cfg.price_limits;
@@ -674,20 +693,63 @@ async function saveConfig(){
 }
 
 // ── 토글 ─────────────────────────────────────────────────
-function onToggle(checked){
-  alertOn=checked;
-  document.getElementById('settingsToggle').checked=checked;
-  document.getElementById('toggleLabel').textContent=checked?'알림 ON':'알림 OFF';
-  document.getElementById('alertBanner').className='alert-banner'+(checked?' show':'');
-  updateStatus(checked);
-  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_on:checked})}).catch(()=>{});
+async function requestToggleFromTop(event){
+  if (event) event.preventDefault();
+
+  try {
+    const r = await fetch('/api/auth/status');
+    const d = await r.json();
+
+    if (!d.verified) {
+      await loadPublicStatus();
+      alert('실시간 알림 ON/OFF는 관리자 설정에서만 변경할 수 있습니다.');
+      const settingsTab = [...document.querySelectorAll('.mtab')]
+        .find(b => b.textContent.includes('설정'));
+      if (settingsTab) {
+        switchMain('settings', settingsTab);
+        initSettings();
+      }
+      return;
+    }
+
+    await saveAlertOn(!alertOn);
+  } catch(e) {
+    await loadPublicStatus();
+  }
 }
-function syncToggle(checked){
-  alertOn=checked;document.getElementById('mainToggle').checked=checked;
-  document.getElementById('toggleLabel').textContent=checked?'알림 ON':'알림 OFF';
-  document.getElementById('alertBanner').className='alert-banner'+(checked?' show':'');
+
+async function saveAlertOn(checked){
+  const r = await fetch('/api/config', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({alert_on:checked})
+  });
+
+  if (!r.ok) {
+    await loadPublicStatus();
+    alert('관리자 인증 후 변경할 수 있습니다.');
+    return false;
+  }
+
+  const d = await r.json();
+  if (!d.ok) {
+    await loadPublicStatus();
+    alert(d.error || '설정 저장 실패');
+    return false;
+  }
+
+  alertOn = checked;
+  document.getElementById('mainToggle').checked = checked;
+  const st = document.getElementById('settingsToggle');
+  if (st) st.checked = checked;
+  document.getElementById('toggleLabel').textContent = checked ? '알림 ON' : '알림 OFF';
+  document.getElementById('alertBanner').className = 'alert-banner' + (checked ? ' show' : '');
   updateStatus(checked);
-  fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_on:checked})}).catch(()=>{});
+  return true;
+}
+
+function syncToggle(checked){
+  saveAlertOn(checked);
 }
 function updateStatus(on){
   document.getElementById('statusBadge').className='sbadge'+(on?' on':'');
@@ -698,7 +760,31 @@ function updateStatus(on){
 // ── 카드 렌더러 ──────────────────────────────────────────
 function dealCard(d){
   const extIcon=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`;
-  return `<div class="deal-card"><div class="dtop"><div><div class="droute">${d.route} 왕복</div><div class="dsched">📅 ${d.dep_date} ~ ${d.ret_date} · ${d.schedule}</div></div><div class="pblock"><div class="pmain">${d.price.toLocaleString()}원</div><div class="psave">-${d.saving}%</div></div></div><div class="dmeta"><span>🏢 ${d.airline}</span><span>📊 기준가 ${d.limit.toLocaleString()}원</span></div><div class="dfooter"><span class="rpill">${d.reason}</span><div class="lgrp"><a href="${d.url}" target="_blank" class="lbtn">네이버항공 ${extIcon}</a><a href="${d.skyscanner_url}" target="_blank" class="lbtn">스카이스캐너 ${extIcon}</a></div></div></div>`;
+  const hasPrice = typeof d.price === 'number' && isFinite(d.price);
+  const priceText = hasPrice ? `${d.price.toLocaleString()}원` : '가격 확인';
+  const saveText = hasPrice && d.saving !== null && d.saving !== undefined ? `-${d.saving}%` : 'CHECK';
+  const sourceText = d.source_label || d.airline || (hasPrice ? '자동조회' : '네이버/스카이스캐너 직접 확인');
+  const reasonText = d.reason || (hasPrice ? '' : '자동 가격 확인 실패 — 링크에서 직접 확인');
+  const candidates = Array.isArray(d.candidates) ? d.candidates : [];
+  const checkedText = d.checked_count ? `<span>🗓 검색범위 ${d.checked_count}개 날짜 조회</span>` : '';
+
+  let linksHtml = `<div class="lgrp"><a href="${d.url}" target="_blank" rel="noopener" class="lbtn">네이버항공 ${extIcon}</a><a href="${d.skyscanner_url}" target="_blank" rel="noopener" class="lbtn">스카이스캐너 ${extIcon}</a></div>`;
+
+  const candidateHtml = (!hasPrice && candidates.length)
+    ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border2);display:flex;flex-direction:column;gap:7px">
+        ${candidates.map((c, idx)=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${idx+1}. ${c.dep_date} ~ ${c.ret_date} · ${c.schedule}</span>
+            <span class="lgrp"><a href="${c.url}" target="_blank" rel="noopener" class="lbtn">네이버 ${extIcon}</a><a href="${c.skyscanner_url}" target="_blank" rel="noopener" class="lbtn">스카이 ${extIcon}</a></span>
+          </div>`).join('')}
+       </div>`
+    : '';
+
+  if (!hasPrice && candidates.length) {
+    linksHtml = `<div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-align:right">후보 ${candidates.length}개 표시</div>`;
+  }
+
+  return `<div class="deal-card"><div class="dtop"><div><div class="droute">${d.route} 왕복</div><div class="dsched">📅 ${d.dep_date} ~ ${d.ret_date} · ${d.schedule}</div></div><div class="pblock"><div class="pmain">${priceText}</div><div class="psave">${saveText}</div></div></div><div class="dmeta"><span>🏢 ${sourceText}</span><span>📊 기준가 ${d.limit.toLocaleString()}원</span>${checkedText}</div><div class="dfooter"><span class="rpill">${reasonText}</span>${linksHtml}</div>${candidateHtml}</div>`;
 }
 function evCard(e,i){
   const t=i%3===0?'<span class="tag tag-hot">HOT</span>':i%3===1?'<span class="tag tag-new">NEW</span>':'<span class="tag tag-end">마감임박</span>';
@@ -710,6 +796,8 @@ function nowStr(){return new Date().toLocaleString('ko-KR',{month:'long',day:'nu
 
 // ── 시작 ─────────────────────────────────────────────────
 initDestTabs();
+loadPublicStatus();
+setInterval(loadPublicStatus, 30000);
 // 이전 결과 불러오기
 fetch('/api/last').then(r=>r.json()).then(d=>{
   if(d.deals&&d.deals.length){
