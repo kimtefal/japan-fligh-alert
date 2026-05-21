@@ -80,17 +80,35 @@ def today_kst() -> date:
 
 monitor_thread: Optional[threading.Thread] = None
 stop_event = threading.Event()
+wake_event = threading.Event()
 
 # ── 데이터 ───────────────────────────────────────────────────
 
+def default_data() -> dict:
+    # DEFAULT_CONFIG 안의 중첩 dict가 런타임 중 공유되지 않도록 깊은 복사한다.
+    return {
+        "config": json.loads(json.dumps(DEFAULT_CONFIG, ensure_ascii=False)),
+        "sent_keys": [],
+        "last_deals": [],
+        "last_events": [],
+        "last_checked": None,
+    }
+
 def load_data() -> dict:
+    data = default_data()
     if DATA_FILE.exists():
         try:
-            return json.loads(DATA_FILE.read_text(encoding="utf-8"))
+            loaded = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                data.update({k: v for k, v in loaded.items() if k != "config"})
+                loaded_cfg = loaded.get("config", {})
+                if isinstance(loaded_cfg, dict):
+                    data["config"].update({k: v for k, v in loaded_cfg.items() if k != "price_limits"})
+                    if isinstance(loaded_cfg.get("price_limits"), dict):
+                        data["config"]["price_limits"].update(loaded_cfg["price_limits"])
         except Exception:
             pass
-    return {"config": DEFAULT_CONFIG.copy(), "sent_keys": [],
-            "last_deals": [], "last_events": [], "last_checked": None}
+    return data
 
 def save_data(d: dict):
     DATA_FILE.write_text(json.dumps(d, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -164,13 +182,36 @@ def get_trips(max_per_type=5):
 
 # ── 가격 조회 ─────────────────────────────────────────────────
 
+def _extract_price_numbers(text: str) -> list[int]:
+    """정적 HTML/JSON 안에서 원화 가격처럼 보이는 숫자를 최대한 보수적으로 추출한다."""
+    if not text:
+        return []
+
+    candidates = []
+    patterns = [
+        r'"totalPrice"\s*:\s*(\d+)',
+        r'"price"\s*:\s*"?(\d{5,8})"?',
+        r'"amount"\s*:\s*"?(\d{5,8})"?',
+        r'KRW\s*([0-9][0-9,]{4,})',
+        r'₩\s*([0-9][0-9,]{4,})',
+        r'([0-9][0-9,]{4,})\s*원',
+    ]
+    for pattern in patterns:
+        for raw in re.findall(pattern, text, flags=re.IGNORECASE):
+            try:
+                value = int(str(raw).replace(',', '').strip())
+            except Exception:
+                continue
+            if 50000 < value < 2000000:
+                candidates.append(value)
+    return sorted(set(candidates))
+
 def fetch_naver_price(dep, arr, dep_date, ret_date) -> Optional[int]:
     d1, d2 = dep_date.strftime("%Y%m%d"), ret_date.strftime("%Y%m%d")
     url = f"https://flight.naver.com/flights/international/{dep}-{arr}-{d1}/{arr}-{dep}-{d2}?adult=1"
     try:
         r = requests.get(url, headers=HEADERS, timeout=8)
-        nums = re.findall(r'"totalPrice"\s*:\s*(\d+)', r.text)
-        prices = [int(n) for n in nums if 50000 < int(n) < 2000000]
+        prices = _extract_price_numbers(r.text)
         return min(prices) if prices else None
     except Exception:
         return None
@@ -183,35 +224,92 @@ def build_skyscanner_url(dep, arr, dep_date, ret_date):
     d1, d2 = dep_date.strftime("%y%m%d"), ret_date.strftime("%y%m%d")
     return f"https://www.skyscanner.co.kr/transport/flights/{dep.lower()}/{arr.lower()}/{d1}/{d2}/?adults=1&currency=KRW"
 
-def search_one_route(dep, arr, limit, trips) -> Optional[dict]:
-    best_price, best_trip = None, None
-    for dep_date, ret_date, label in trips:
-        if dep_date <= today_kst():
-            continue
-        try:
-            price = fetch_naver_price(dep, arr, dep_date, ret_date)
-            time.sleep(0.4)
-        except Exception:
-            time.sleep(0.4)
-            continue
-        if price and (best_price is None or price < best_price):
-            best_price, best_trip = price, (dep_date, ret_date, label)
+def fetch_skyscanner_price(dep, arr, dep_date, ret_date) -> Optional[int]:
+    """스카이스캐너 정적 응답에서 가격 추출을 시도한다.
 
-    if best_price and best_trip and best_price <= limit:
-        dep_date, ret_date, label = best_trip
-        saving = round((1 - best_price / limit) * 100)
+    스카이스캐너는 동적 렌더링/봇 차단이 잦아서 성공을 보장하지 않는다.
+    실패해도 앱은 링크 확인 카드로 떨어진다.
+    """
+    url = build_skyscanner_url(dep, arr, dep_date, ret_date)
+    headers = {
+        **HEADERS,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Referer": "https://www.skyscanner.co.kr/",
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+        prices = _extract_price_numbers(r.text)
+        return min(prices) if prices else None
+    except Exception:
+        return None
+
+def make_deal_candidate(dep, arr, dep_date, ret_date, label, limit, price: Optional[int], source: str) -> dict:
+    naver_url = build_naver_url(dep, arr, dep_date, ret_date)
+    skyscanner_url = build_skyscanner_url(dep, arr, dep_date, ret_date)
+    if price is None:
         return {
             "route": f"{dep} → {CITY_NAMES.get(arr, arr)}({arr})",
             "dep": dep, "arr": arr,
             "dep_date": dep_date.strftime("%Y.%m.%d"),
             "ret_date": ret_date.strftime("%Y.%m.%d"),
             "schedule": label,
-            "price": best_price, "limit": limit, "saving": saving,
-            "airline": "네이버항공",
-            "url": build_naver_url(dep, arr, dep_date, ret_date),
-            "skyscanner_url": build_skyscanner_url(dep, arr, dep_date, ret_date),
-            "reason": f"기준가 {limit:,}원 대비 {saving}% 저렴",
+            "price": None, "limit": limit, "saving": None,
+            "airline": "가격 확인 필요",
+            "source_label": "네이버/스카이스캐너 직접 확인",
+            "price_status": "check",
+            "url": naver_url,
+            "skyscanner_url": skyscanner_url,
+            "reason": f"자동 가격 확인 실패 또는 기준가 이하 미확정 — {limit:,}원 이하 여부를 링크에서 확인",
         }
+
+    saving = round((1 - price / limit) * 100)
+    return {
+        "route": f"{dep} → {CITY_NAMES.get(arr, arr)}({arr})",
+        "dep": dep, "arr": arr,
+        "dep_date": dep_date.strftime("%Y.%m.%d"),
+        "ret_date": ret_date.strftime("%Y.%m.%d"),
+        "schedule": label,
+        "price": price, "limit": limit, "saving": saving,
+        "airline": source,
+        "source_label": source,
+        "price_status": "ok",
+        "url": naver_url,
+        "skyscanner_url": skyscanner_url,
+        "reason": f"기준가 {limit:,}원 대비 {saving}% 저렴",
+    }
+
+def search_one_route(dep, arr, limit, trips) -> Optional[dict]:
+    best_price, best_trip, best_source = None, None, None
+    fallback_trip = None
+
+    for dep_date, ret_date, label in trips:
+        if dep_date <= today_kst():
+            continue
+        if fallback_trip is None:
+            fallback_trip = (dep_date, ret_date, label)
+
+        try:
+            naver_price = fetch_naver_price(dep, arr, dep_date, ret_date)
+            skyscanner_price = fetch_skyscanner_price(dep, arr, dep_date, ret_date)
+            time.sleep(0.35)
+        except Exception:
+            time.sleep(0.35)
+            continue
+
+        for price, source in ((naver_price, "네이버항공"), (skyscanner_price, "스카이스캐너")):
+            if price and (best_price is None or price < best_price):
+                best_price, best_trip, best_source = price, (dep_date, ret_date, label), source
+
+    if best_price and best_trip and best_price <= limit:
+        dep_date, ret_date, label = best_trip
+        return make_deal_candidate(dep, arr, dep_date, ret_date, label, limit, best_price, best_source or "자동조회")
+
+    # 가격 크롤링이 실패하거나, 기준가 이하임을 자동 확정하지 못한 경우에도
+    # 사용자가 바로 확인할 수 있도록 후보 날짜 링크 카드를 반환한다.
+    if fallback_trip:
+        dep_date, ret_date, label = fallback_trip
+        return make_deal_candidate(dep, arr, dep_date, ret_date, label, limit, None, "가격 확인 필요")
+
     return None
 
 # ── SSE: 그룹 검색 ────────────────────────────────────────────
@@ -352,12 +450,24 @@ def send_telegram(token, chat_id, text) -> bool:
         return False
 
 def send_deal_alert(token, chat_id, deal) -> bool:
+    if deal.get("price_status") == "check" or deal.get("price") is None:
+        msg = (f"🔎 <b>일본 항공권 가격 확인 필요</b>\n\n"
+               f"🛫 <b>노선</b>: {deal['route']} 왕복\n"
+               f"📅 <b>일정</b>: {deal['dep_date']} ~ {deal['ret_date']} ({deal['schedule']})\n"
+               f"💴 <b>기준가</b>: {deal['limit']:,}원 이하 직접 확인\n"
+               f"💡 {deal['reason']}\n"
+               f"🔗 <a href=\"{deal['url']}\">네이버항공 확인</a>\n"
+               f"🔗 <a href=\"{deal['skyscanner_url']}\">스카이스캐너 확인</a>")
+        return send_telegram(token, chat_id, msg)
+
     msg = (f"✈️ <b>일본 항공권 특가!</b>\n\n"
            f"🛫 <b>노선</b>: {deal['route']} 왕복\n"
            f"📅 <b>일정</b>: {deal['dep_date']} ~ {deal['ret_date']} ({deal['schedule']})\n"
            f"💴 <b>가격</b>: <b>{deal['price']:,}원</b> (기준가 대비 {deal['saving']}% ↓)\n"
+           f"🏷 <b>출처</b>: {deal.get('source_label', deal.get('airline','자동조회'))}\n"
            f"💡 {deal['reason']}\n"
-           f"🔗 <a href=\"{deal['url']}\">네이버항공 예약</a>")
+           f"🔗 <a href=\"{deal['url']}\">네이버항공 예약</a>\n"
+           f"🔗 <a href=\"{deal['skyscanner_url']}\">스카이스캐너 확인</a>")
     return send_telegram(token, chat_id, msg)
 
 # ── 모니터링 루프 ─────────────────────────────────────────────
@@ -367,10 +477,14 @@ def monitor_loop():
     while not stop_event.is_set():
         d = load_data(); cfg = d["config"]
         if not cfg.get("alert_on"):
-            stop_event.wait(60); continue
+            wake_event.wait(60)
+            wake_event.clear()
+            continue
         if not cfg.get("telegram_token") or not cfg.get("telegram_chat_id"):
             append_log("fail","시스템","텔레그램 미설정","토큰 또는 chat_id 없음")
-            stop_event.wait(60); continue
+            wake_event.wait(60)
+            wake_event.clear()
+            continue
 
         append_log("info","시스템","검색 사이클 시작", now_kst().strftime("%Y-%m-%d %H:%M"))
         trips = get_trips(max_per_type=5)
@@ -378,29 +492,34 @@ def monitor_loop():
         all_deals = []
 
         for arr, limit in cfg["price_limits"].items():
-            if stop_event.is_set(): break
+            if stop_event.is_set() or not load_data().get("config", {}).get("alert_on"):
+                break
             city = CITY_NAMES.get(arr, arr)
             for dep in ["ICN","GMP"]:
-                if stop_event.is_set(): break
+                if stop_event.is_set() or not load_data().get("config", {}).get("alert_on"):
+                    break
                 route_label = f"{dep}→{city}({arr})"
                 try:
                     deal = search_one_route(dep, arr, limit, trips)
                     if deal:
                         all_deals.append(deal)
                         key = f"{deal['dep']}-{deal['arr']}-{deal['dep_date']}"
-                        if key in sent:
+
+                        if deal.get("price_status") == "check":
+                            append_log("info", route_label, "가격 확인 필요 후보", f"{deal['dep_date']} · {deal['schedule']} · 기준가 {limit:,}원")
+                        elif key in sent:
                             append_log("skip", route_label, "특가 발견 (이미 발송됨)", f"{deal['price']:,}원")
                         else:
                             ok = send_deal_alert(cfg["telegram_token"], cfg["telegram_chat_id"], deal)
                             if ok:
                                 sent.add(key)
                                 append_log("success", route_label, "텔레그램 알림 발송 성공",
-                                           f"{deal['price']:,}원 · {deal['schedule']}")
+                                           f"{deal['price']:,}원 · {deal['schedule']} · {deal.get('source_label','자동조회')}")
                             else:
                                 append_log("fail", route_label, "텔레그램 알림 발송 실패",
                                            "API 응답 오류 — 토큰/chat_id 확인")
                     else:
-                        append_log("info", route_label, "특가 없음", f"기준가 {limit:,}원 이하 미발견")
+                        append_log("info", route_label, "검색 후보 없음", f"기준가 {limit:,}원")
                 except Exception as e:
                     append_log("fail", route_label, "검색 오류", str(e))
                 stop_event.wait(1)
@@ -410,13 +529,16 @@ def monitor_loop():
         d["last_checked"] = now_kst().isoformat()
         d["sent_keys"] = list(sent)[-200:]
         save_data(d)
-        append_log("info","시스템",f"사이클 완료 — 특가 {len(all_deals)}건",
+        append_log("info","시스템",f"사이클 완료 — 표시 후보 {len(all_deals)}건",
                    f"다음 검색: {cfg.get('interval_minutes',30)}분 후")
-        stop_event.wait(cfg.get("interval_minutes",30) * 60)
+        wake_event.wait(cfg.get("interval_minutes",30) * 60)
+        wake_event.clear()
     append_log("info","시스템","모니터링 중지")
 
 def start_monitor():
     global monitor_thread, stop_event
+    if monitor_thread is not None and monitor_thread.is_alive():
+        return
     stop_event.clear()
     monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
     monitor_thread.start()
@@ -438,14 +560,28 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     if not is_admin(): return jsonify({"ok":False,"error":"인증 필요"}), 403
-    d = load_data(); body = request.json
-    d["config"].update({k: v for k, v in body.items() if k in DEFAULT_CONFIG})
+    d = load_data()
+    body = request.json or {}
+
+    # 허용된 설정만 서버 전역 설정으로 저장한다.
+    for k, v in body.items():
+        if k not in DEFAULT_CONFIG:
+            continue
+        if k == "price_limits" and isinstance(v, dict):
+            d["config"].setdefault("price_limits", {}).update(v)
+        else:
+            d["config"][k] = v
+
     save_data(d)
+
     if d["config"].get("alert_on"):
-        stop_event.set(); time.sleep(0.3); start_monitor()
+        start_monitor()
+        append_log("info", "시스템", "모니터링 ON")
     else:
-        stop_event.set(); append_log("info","시스템","모니터링 OFF")
-    return jsonify({"ok": True})
+        append_log("info", "시스템", "모니터링 OFF")
+    wake_event.set()
+
+    return jsonify({"ok": True, "alert_on": bool(d["config"].get("alert_on"))})
 
 # 인증 API — 비밀번호 방식
 @app.route("/api/auth/verify", methods=["POST"])
@@ -460,6 +596,17 @@ def auth_verify():
 @app.route("/api/auth/status", methods=["GET"])
 def auth_status():
     return jsonify({"verified": is_admin()})
+
+@app.route("/api/public/status", methods=["GET"])
+def public_status():
+    d = load_data()
+    cfg = d.get("config", {})
+    return jsonify({
+        "alert_on": bool(cfg.get("alert_on")),
+        "interval_minutes": cfg.get("interval_minutes", 30),
+        "last_checked": d.get("last_checked"),
+        "monitor_alive": bool(monitor_thread and monitor_thread.is_alive()),
+    })
 
 @app.route("/api/auth/logout", methods=["POST"])
 def auth_logout():
